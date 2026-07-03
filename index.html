@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>社員アカウント生成ツール | Goku Tech</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f3;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 780px; margin: 0 auto; }
+    header { margin-bottom: 2rem; }
+    header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+    header p { font-size: 14px; color: #666; margin-top: 4px; }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e5e5e3;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card-title { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .tabs { display: flex; gap: 6px; margin-bottom: 1.2rem; }
+    .tab-btn {
+      font-size: 13px; padding: 6px 14px; cursor: pointer;
+      border: 1px solid #ddd; border-radius: 8px;
+      background: transparent; color: #666;
+      transition: all 0.15s;
+    }
+    .tab-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+    .drop-zone {
+      border: 2px dashed #ddd; border-radius: 10px;
+      padding: 2.5rem; text-align: center; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .drop-zone:hover, .drop-zone.drag-over { background: #f9f9f7; border-color: #999; }
+    .drop-zone input[type=file] { display: none; }
+    .drop-zone .icon { font-size: 32px; margin-bottom: 10px; }
+    .drop-zone p { font-size: 14px; font-weight: 500; color: #333; }
+    .drop-zone small { font-size: 12px; color: #888; margin-top: 4px; display: block; }
+
+    .file-info { margin-top: 10px; font-size: 13px; color: #555; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      font-size: 12px; font-weight: 600; color: #888;
+      text-align: left; padding: 8px 10px;
+      border-bottom: 1px solid #eee;
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    td { font-size: 13px; padding: 8px 10px; border-bottom: 1px solid #f0f0ee; color: #1a1a1a; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .row-num { color: #bbb; font-size: 12px; width: 28px; }
+
+    input[type=text], input[type=date] {
+      width: 100%; padding: 6px 8px; font-size: 13px;
+      border: 1px solid #e0e0de; border-radius: 6px;
+      background: #fafaf8; color: #1a1a1a;
+      outline: none; transition: border-color 0.15s;
+    }
+    input[type=text]:focus, input[type=date]:focus { border-color: #999; background: #fff; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; padding: 8px 16px; border-radius: 8px;
+      border: 1px solid #e0e0de; background: #fff; color: #333;
+      cursor: pointer; transition: all 0.15s; font-weight: 500;
+    }
+    .btn:hover { background: #f5f5f3; border-color: #ccc; }
+    .btn-primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+    .btn-primary:hover { background: #333; }
+    .btn-sm { font-size: 12px; padding: 4px 10px; }
+
+    .code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px; background: #f3f3f1;
+      padding: 2px 7px; border-radius: 5px;
+      word-break: break-all; display: inline-block;
+    }
+
+    .preview-wrap { max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; margin-top: 10px; }
+
+    .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .result-actions { display: flex; gap: 8px; }
+
+    .alert { font-size: 13px; padding: 10px 14px; border-radius: 8px; margin-top: 10px; }
+    .alert-error { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; }
+    .alert-success { background: #f0fff4; color: #27ae60; border: 1px solid #c6f5d5; }
+
+    .remove-btn { border: none; background: none; cursor: pointer; color: #bbb; padding: 0; font-size: 16px; line-height: 1; }
+    .remove-btn:hover { color: #e74c3c; }
+
+    footer { margin-top: 2rem; text-align: center; font-size: 12px; color: #aaa; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>社員アカウント生成ツール</h1>
+    <p>名前・ふりがな・入社日からメールアドレスとパスワードを自動生成します</p>
+  </header>
+
+  <div class="card">
+    <p class="card-title">社員情報の入力</p>
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-excel" onclick="switchTab('excel')">📂 Excelインポート</button>
+      <button class="tab-btn" id="tab-manual" onclick="switchTab('manual')">✏️ 手動入力</button>
+    </div>
+
+    <!-- Excel panel -->
+    <div id="panel-excel">
+      <div class="drop-zone" id="drop-zone"
+        onclick="document.getElementById('file-input').click()"
+        ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <input type="file" id="file-input" accept=".xlsx,.xls" onchange="onFileChange(event)" />
+        <div class="icon">📄</div>
+        <p>Excelファイルをドロップ、またはクリックして選択</p>
+        <small>.xlsx / .xls 対応　|　A列：名前　B列：ふりがな　C列：入社日</small>
+      </div>
+      <div class="file-info" id="file-info" style="display:none;"></div>
+      <div id="preview-section" style="display:none; margin-top:1rem;">
+        <p style="font-size:13px; color:#555; margin-bottom:6px;">読み込んだデータ（<span id="preview-count">0</span>件）</p>
+        <div class="preview-wrap">
+          <table>
+            <thead><tr><th class="row-num">#</th><th>名前</th><th>ふりがな</th><th>入社日</th></tr></thead>
+            <tbody id="preview-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual panel -->
+    <div id="panel-manual" style="display:none;">
+      <table>
+        <thead><tr>
+          <th class="row-num">#</th>
+          <th>名前（漢字）</th>
+          <th>ふりがな</th>
+          <th>入社日</th>
+          <th style="width:32px;"></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div style="margin-top:10px;">
+        <button class="btn" onclick="addRow()">＋ 行を追加</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 1rem;">
+    <button class="btn btn-primary" onclick="generate()">⚡ アカウントを生成</button>
+  </div>
+
+  <div id="error-msg" style="display:none;"></div>
+
+  <div class="card" id="result-section" style="display:none;">
+    <div class="result-header">
+      <p class="card-title" style="margin:0;">生成結果</p>
+      <div class="result-actions">
+        <button class="btn btn-sm" onclick="copyAll()">📋 全てコピー</button>
+        <button class="btn btn-sm" onclick="downloadCSV()">⬇️ CSVダウンロード</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th class="row-num">#</th>
+        <th>名前</th>
+        <th>メールアドレス</th>
+        <th>パスワード</th>
+        <th style="width:40px;"></th>
+      </tr></thead>
+      <tbody id="result-rows"></tbody>
+    </table>
+  </div>
+
+  <footer>Goku Tech &mdash; 社員アカウント生成ツール</footer>
+</div>
+
+<script>
+const KANA_MAP = {
+  'きゃ':'kya','きゅ':'kyu','きょ':'kyo','しゃ':'sha','しゅ':'shu','しょ':'sho',
+  'ちゃ':'cha','ちゅ':'chu','ちょ':'cho','にゃ':'nya','にゅ':'nyu','にょ':'nyo',
+  'ひゃ':'hya','ひゅ':'hyu','ひょ':'hyo','みゃ':'mya','みゅ':'myu','みょ':'myo',
+  'りゃ':'rya','りゅ':'ryu','りょ':'ryo','ぎゃ':'gya','ぎゅ':'gyu','ぎょ':'gyo',
+  'じゃ':'ja','じゅ':'ju','じょ':'jo','びゃ':'bya','びゅ':'byu','びょ':'byo',
+  'ぴゃ':'pya','ぴゅ':'pyu','ぴょ':'pyo',
+  'あ':'a','い':'i','う':'u','え':'e','お':'o',
+  'か':'ka','き':'ki','く':'ku','け':'ke','こ':'ko',
+  'さ':'sa','し':'shi','す':'su','せ':'se','そ':'so',
+  'た':'ta','ち':'chi','つ':'tsu','て':'te','と':'to',
+  'な':'na','に':'ni','ぬ':'nu','ね':'ne','の':'no',
+  'は':'ha','ひ':'hi','ふ':'fu','へ':'he','ほ':'ho',
+  'ま':'ma','み':'mi','む':'mu','め':'me','も':'mo',
+  'や':'ya','ゆ':'yu','よ':'yo',
+  'ら':'ra','り':'ri','る':'ru','れ':'re','ろ':'ro',
+  'わ':'wa','を':'o','ん':'n',
+  'が':'ga','ぎ':'gi','ぐ':'gu','げ':'ge','ご':'go',
+  'ざ':'za','じ':'ji','ず':'zu','ぜ':'ze','ぞ':'zo',
+  'だ':'da','ぢ':'ji','づ':'zu','で':'de','ど':'do',
+  'ば':'ba','び':'bi','ぶ':'bu','べ':'be','ぼ':'bo',
+  'ぱ':'pa','ぴ':'pi','ぷ':'pu','ぺ':'pe','ぽ':'po',
+  'っ':'__double__','ー':'',
+  ' ':' ','　':' '
+};
+
+function toRomaji(kana) {
+  kana = kana.trim();
+  let result = '';
+  let i = 0;
+  while (i < kana.length) {
+    const c2 = kana.slice(i, i+2);
+    const c1 = kana[i];
+    if (c1 === 'っ') {
+      const next2 = kana.slice(i+1, i+3);
+      const next1 = kana[i+1];
+      const r = KANA_MAP[next2] || KANA_MAP[next1] || '';
+      result += r.charAt(0);
+      i++;
+    } else if (KANA_MAP[c2] !== undefined && KANA_MAP[c2] !== '__double__') {
+      result += KANA_MAP[c2]; i += 2;
+    } else if (KANA_MAP[c1] !== undefined) {
+      result += KANA_MAP[c1]; i++;
+    } else {
+      result += c1; i++;
+    }
+  }
+  return result.replace(/uu/g,'u').replace(/oo/g,'o').replace(/ou/g,'o').replace(/\s+/g,' ').trim();
+}
+
+function parseDate(val) {
+  if (!val) return null;
+  let d;
+  if (typeof val === 'number') {
+    d = new Date(Math.round((val - 25569) * 864e5));
+  } else {
+    d = new Date(val);
+  }
+  if (isNaN(d)) return null;
+  return String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
+}
+
+function formatDateDisplay(val) {
+  if (!val) return '';
+  let d;
+  if (typeof val === 'number') d = new Date(Math.round((val - 25569) * 864e5));
+  else d = new Date(val);
+  if (isNaN(d)) return String(val);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function buildAccount(name, kana, dateVal) {
+  const romaji = toRomaji(kana);
+  const parts = romaji.split(' ');
+  let first = '', last = '';
+  if (parts.length >= 2) { last = parts[0]; first = parts.slice(1).join(''); }
+  else { first = romaji; }
+  const yymm = parseDate(dateVal);
+  if (!yymm) return null;
+  const email = last ? `${first}.${last}_${yymm}@goku-tech.co.jp` : `${first}_${yymm}@goku-tech.co.jp`;
+  const firstCap = first.charAt(0).toUpperCase() + first.slice(1);
+  return { name, email, password: `${firstCap}_goku${yymm}` };
+}
+
+let importedData = [];
+let currentTab = 'excel';
+let rowCount = 0;
+let generatedResults = [];
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('panel-excel').style.display = tab === 'excel' ? 'block' : 'none';
+  document.getElementById('panel-manual').style.display = tab === 'manual' ? 'block' : 'none';
+  document.getElementById('tab-excel').className = 'tab-btn' + (tab==='excel'?' active':'');
+  document.getElementById('tab-manual').className = 'tab-btn' + (tab==='manual'?' active':'');
+  document.getElementById('result-section').style.display = 'none';
+  document.getElementById('error-msg').style.display = 'none';
+}
+
+function onDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+function onDragLeave() { document.getElementById('drop-zone').classList.remove('drag-over'); }
+function onDrop(e) { e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if(f) processFile(f); }
+function onFileChange(e) { const f = e.target.files[0]; if(f) processFile(f); }
+
+function processFile(file) {
+  const info = document.getElementById('file-info');
+  info.textContent = '読み込み中...'; info.style.display = 'block';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+      importedData = [];
+      let start = 0;
+      if (rows.length > 0) {
+        const h = rows[0];
+        if (typeof h[0]==='string' && (h[0].includes('名前')||h[0].includes('氏名')||h[0]==='A列')) start = 1;
+      }
+      for (let i = start; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r[0] && !r[1]) continue;
+        importedData.push({ name: String(r[0]||'').trim(), kana: String(r[1]||'').trim(), date: r[2] });
+      }
+      info.textContent = `✓ ${file.name}（${importedData.length}件読み込み済み）`;
+      renderPreview();
+    } catch(err) {
+      info.textContent = 'エラー：ファイルを読み込めませんでした。';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderPreview() {
+  const tbody = document.getElementById('preview-rows');
+  tbody.innerHTML = '';
+  importedData.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="row-num">${i+1}</td><td>${r.name}</td><td>${r.kana}</td><td>${formatDateDisplay(r.date)}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('preview-count').textContent = importedData.length;
+  document.getElementById('preview-section').style.display = importedData.length > 0 ? 'block' : 'none';
+}
+
+function addRow(name='', kana='', date='') {
+  rowCount++;
+  const n = rowCount;
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + n;
+  tr.innerHTML = `
+    <td class="row-num">${n}</td>
+    <td><input type="text" id="name-${n}" value="${name}" placeholder="小島 悠平" /></td>
+    <td><input type="text" id="kana-${n}" value="${kana}" placeholder="こじま ゆうへい" /></td>
+    <td><input type="date" id="date-${n}" value="${date}" /></td>
+    <td><button class="remove-btn" onclick="document.getElementById('row-${n}').remove()" aria-label="削除">✕</button></td>`;
+  document.getElementById('rows').appendChild(tr);
+}
+
+function generate() {
+  const errEl = document.getElementById('error-msg');
+  errEl.style.display = 'none';
+  let dataList = [];
+
+  if (currentTab === 'excel') {
+    if (!importedData.length) {
+      errEl.innerHTML = '<div class="alert alert-error">Excelファイルを読み込んでください。</div>';
+      errEl.style.display = 'block'; return;
+    }
+    dataList = importedData;
+  } else {
+    document.querySelectorAll('#rows tr').forEach(tr => {
+      const id = tr.id.replace('row-','');
+      dataList.push({ name: document.getElementById('name-'+id).value.trim(), kana: document.getElementById('kana-'+id).value.trim(), date: document.getElementById('date-'+id).value });
+    });
+    if (!dataList.length) {
+      errEl.innerHTML = '<div class="alert alert-error">社員情報を入力してください。</div>';
+      errEl.style.display = 'block'; return;
+    }
+  }
+
+  generatedResults = [];
+  let skipped = 0;
+  dataList.forEach(r => {
+    if (!r.name || !r.kana || !r.date) { skipped++; return; }
+    const acc = buildAccount(r.name, r.kana, r.date);
+    if (!acc) { skipped++; return; }
+    generatedResults.push(acc);
+  });
+
+  if (skipped > 0) {
+    errEl.innerHTML = `<div class="alert alert-error">${skipped}件の行をスキップしました（空欄または日付が不正）。</div>`;
+    errEl.style.display = 'block';
+  }
+  if (!generatedResults.length) return;
+
+  const tbody = document.getElementById('result-rows');
+  tbody.innerHTML = '';
+  generatedResults.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="row-num">${i+1}</td>
+      <td>${r.name}</td>
+      <td><span class="code">${r.email}</span></td>
+      <td><span class="code">${r.password}</span></td>
+      <td><button class="btn btn-sm" onclick="navigator.clipboard.writeText('${r.email}\\t${r.password}')" title="コピー">📋</button></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyAll() {
+  let text = '名前\tメールアドレス\tパスワード\n';
+  generatedResults.forEach(r => { text += `${r.name}\t${r.email}\t${r.password}\n`; });
+  navigator.clipboard.writeText(text.trim());
+}
+
+function downloadCSV() {
+  let csv = '\uFEFF名前,メールアドレス,パスワード\n';
+  generatedResults.forEach(r => { csv += `${r.name},${r.email},${r.password}\n`; });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = 'accounts.csv';
+  a.click();
+}
+
+addRow('小島 悠平','こじま ゆうへい','2021-10-05');
+</script>
+</body>
+</html>
