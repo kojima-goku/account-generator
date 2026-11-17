@@ -124,7 +124,7 @@
         <input type="file" id="file-input" accept=".xlsx,.xls" onchange="onFileChange(event)" />
         <div class="icon">📄</div>
         <p>Excelファイルをドロップ、またはクリックして選択</p>
-        <small>.xlsx / .xls 対応　|　A列：名前　B列：ふりがな　C列：入社日</small>
+        <small>.xlsx / .xls 対応　|　A列：名前　B列：ふりがな（ひらがな・カタカナ可）　C列：入社日</small>
       </div>
       <div class="file-info" id="file-info" style="display:none;"></div>
       <div id="preview-section" style="display:none; margin-top:1rem;">
@@ -144,7 +144,7 @@
         <thead><tr>
           <th class="row-num">#</th>
           <th>名前（漢字）</th>
-          <th>ふりがな</th>
+          <th>ふりがな（ひらがな・カタカナ可）</th>
           <th>入社日</th>
           <th style="width:32px;"></th>
         </tr></thead>
@@ -208,12 +208,18 @@ const KANA_MAP = {
   'だ':'da','ぢ':'ji','づ':'zu','で':'de','ど':'do',
   'ば':'ba','び':'bi','ぶ':'bu','べ':'be','ぼ':'bo',
   'ぱ':'pa','ぴ':'pi','ぷ':'pu','ぺ':'pe','ぽ':'po',
+  'ゔ':'vu',
   'っ':'__double__','ー':'',
   ' ':' ','　':' '
 };
 
+// カタカナ → ひらがな変換（ァ〜ヶ を ぁ〜ゖ に）
+function kataToHira(str) {
+  return str.replace(/[\u30A1-\u30F6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+}
+
 function toRomaji(kana) {
-  kana = kana.trim();
+  kana = kataToHira(kana.normalize('NFKC')).trim();
   let result = '';
   let i = 0;
   while (i < kana.length) {
